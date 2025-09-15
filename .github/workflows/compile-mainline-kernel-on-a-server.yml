@@ -21,7 +21,7 @@ on:
       kernel_version:
         description: "Select kernel version"
         required: false
-        default: "6.12.y"
+        default: "6.6.y"
         type: choice
         options:
           - 5.4.y
@@ -38,6 +38,11 @@ on:
           - all
       kernel_auto:
         description: "Auto use the latest kernel"
+        required: false
+        default: true
+        type: boolean
+      auto_patch:
+        description: "Auto apply patch"
         required: false
         default: true
         type: boolean
@@ -82,11 +87,11 @@ on:
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
-        default: "-ophub"
+        default: "-laiyujun"
         type: choice
         options:
           - -ophub
-          - -yourname
+          - -laiyujun
 
 env:
   TZ: Etc/UTC
@@ -154,7 +159,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: laiyujun/amlogic-s9xxx-armbian@main
         if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
@@ -167,6 +172,7 @@ jobs:
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
           compress_format: ${{ inputs.compress_format }}
           silent_log: ${{ inputs.silent_log }}
+          auto_patch: ${{ inputs.auto_patch }}
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
