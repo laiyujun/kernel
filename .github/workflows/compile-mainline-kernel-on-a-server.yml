@@ -9,7 +9,7 @@ name: Compile mainline kernel on a server
 on:
   #自动编译：每个星期二早上4点
   schedule:
-    - cron: 0 16 * * 2
+    - cron: 0 16 * * 2,5
   #推送代码编译
   #push:
   repository_dispatch:
