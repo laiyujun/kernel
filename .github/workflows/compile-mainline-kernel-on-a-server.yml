@@ -108,6 +108,18 @@ jobs:
     runs-on: ubuntu-22.04-arm
     if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
+    env:
+      KERNEL_SOURCE: ${{ github.event.inputs.kernel_source || 'unifreq' }}
+      KERNEL_VERSION: ${{ github.event.inputs.kernel_version || '6.6.y' }}
+      KERNEL_AUTO: ${{ github.event.inputs.kernel_auto || true }}
+      AUTO_PATCH: ${{ github.event.inputs.auto_patch || true }}
+      SILENT_LOG: ${{ github.event.inputs.silent_log || true }}
+      DELETE_SOURCE: ${{ github.event.inputs.delete_source || true }}
+      KERNEL_PACKAGE: ${{ github.event.inputs.kernel_package || 'all' }}
+      KERNEL_TOOLCHAIN: ${{ github.event.inputs.kernel_toolchain || 'gcc' }}
+      COMPRESS_FORMAT: ${{ github.event.inputs.compress_format || 'xz' }}
+      KERNEL_SIGN: ${{ github.event.inputs.kernel_sign || '-laiyujun' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -165,21 +177,21 @@ jobs:
           ln -sf /builder/output /home/runner/work/_actions/laiyujun/amlogic-s9xxx-armbian/main/compile-kernel/output
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
+      - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
         uses: laiyujun/amlogic-s9xxx-armbian@main
         if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
-          kernel_source: ${{ inputs.kernel_source }}
-          kernel_version: ${{ inputs.kernel_version }}
-          kernel_auto: ${{ inputs.kernel_auto }}
-          delete_source: ${{ inputs.delete_source }}
-          kernel_package: ${{ inputs.kernel_package }}
-          kernel_sign: ${{ inputs.kernel_sign }}
-          kernel_toolchain: ${{ inputs.kernel_toolchain }}
-          compress_format: ${{ inputs.compress_format }}
-          silent_log: ${{ inputs.silent_log }}
-          auto_patch: ${{ inputs.auto_patch }}
+          kernel_source: ${{ env.KERNEL_SOURCE }}
+          kernel_version: ${{ env.KERNEL_VERSION }}
+          kernel_auto: ${{ env.KERNEL_AUTO }}
+          delete_source: ${{ env.delete_source }}
+          kernel_package: ${{ env.kernel_package }}
+          kernel_sign: ${{ env.kernel_sign }}
+          kernel_toolchain: ${{ env.kernel_toolchain }}
+          compress_format: ${{ env.compress_format }}
+          silent_log: ${{ env.silent_log }}
+          auto_patch: ${{ env.auto_patch }}
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
@@ -192,6 +204,6 @@ jobs:
           replacesArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            The kernel can be used to compile Armbian and OpenWrt.
-            The kernel source code comes from: ${{ inputs.kernel_source }}
-            The kernel compilation toolchain: ${{ inputs.kernel_toolchain }}
+            The kernel can be used to compile Armbian and OpenWrt with oaf driver.
+            The kernel source code comes from: ${{ env.KERNEL_SOURCE }}
+            The kernel compilation toolchain: ${{ env.KERNEL_TOOLCHAIN }}
