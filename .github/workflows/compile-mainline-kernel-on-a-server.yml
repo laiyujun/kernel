@@ -185,13 +185,13 @@ jobs:
           kernel_source: ${{ env.KERNEL_SOURCE }}
           kernel_version: ${{ env.KERNEL_VERSION }}
           kernel_auto: ${{ env.KERNEL_AUTO }}
-          delete_source: ${{ env.delete_source }}
-          kernel_package: ${{ env.kernel_package }}
-          kernel_sign: ${{ env.kernel_sign }}
-          kernel_toolchain: ${{ env.kernel_toolchain }}
-          compress_format: ${{ env.compress_format }}
-          silent_log: ${{ env.silent_log }}
-          auto_patch: ${{ env.auto_patch }}
+          delete_source: ${{ env.DELETE_SOURCE }}
+          kernel_package: ${{ env.KERNEL_PACKAGE }}
+          kernel_sign: ${{ env.KERNEL_SIGN }}
+          kernel_toolchain: ${{ env.KERNEL_TOOLCHAIN }}
+          compress_format: ${{ env.COMPRESS_FORMAT }}
+          silent_log: ${{ env.SILENT_LOG }}
+          auto_patch: ${{ env.AUTO_PATCH }}
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
