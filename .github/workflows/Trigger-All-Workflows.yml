@@ -25,5 +25,5 @@ jobs:
   kernel-5_4_y:
     uses: ./.github/workflows/compile-mainline-kernel-5_4_y.yml
 
-  All-Clean:
-    uses: ./.github/workflows/delete-older-releases-workflows.yml
+#  All-Clean:
+#    uses: ./.github/workflows/delete-older-releases-workflows.yml

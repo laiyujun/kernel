@@ -18,7 +18,7 @@ on:
       workflows_keep_day:
         description: "Days to keep workflows."
         required: false
-        default: 15
+        default: 30
         type: choice
         options:
           - 30
@@ -55,7 +55,7 @@ jobs:
 
     env:
       DEL_WORKFLOWS: ${{ inputs.del_workflows || true }}
-      WORKFLOWS_KEEP_DAY: ${{ inputs.workflows_keep_day || 15 }}
+      WORKFLOWS_KEEP_DAY: ${{ inputs.workflows_keep_day || 30 }}
       WORKFLOWS_KEEP_KEYWORD: ${{ inputs.workflows_keep_keyword }}
       OUT_LOG: ${{ inputs.out_log || true }}
 
