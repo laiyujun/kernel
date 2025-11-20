@@ -8,22 +8,22 @@ on:
 jobs:
 
   kernel-6_12_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6.12.yml
+    uses: ./.github/workflows/compile-mainline-kernel-6_12_y.yml
 
   kernel-6_6_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6.6.yml
+    uses: ./.github/workflows/compile-mainline-kernel-6_6_y.yml
 
   kernel-6_1_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6.1.yml
+    uses: ./.github/workflows/compile-mainline-kernel-6_1_y.yml
 
   kernel-5_15_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5.15.yml
+    uses: ./.github/workflows/compile-mainline-kernel-5_15_y.yml
 
   kernel-5_10_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5.10.yml
+    uses: ./.github/workflows/compile-mainline-kernel-5_10_y.yml
 
   kernel-5_4_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5.4.yml
+    uses: ./.github/workflows/compile-mainline-kernel-5_4_y.yml
 
   All-Clean:
     uses: ./.github/workflows/delete-older-releases-workflows.yml
