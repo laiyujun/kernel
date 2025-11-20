@@ -17,11 +17,12 @@ on:
       workflows_keep_day:
         description: "Days to keep workflows."
         required: false
-        default: "1"
+        default: "15"
         type: choice
         options:
           - 30
           - 20
+          - 15
           - 10
           - 9
           - 8

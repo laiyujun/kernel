@@ -4,7 +4,7 @@
 # Copyright (C) 2021 https://github.com/ophub/amlogic-s9xxx-armbian
 #==========================================================================
 
-name: Compile mainline kernel on a server
+name: Compile mainline kernel for 5.10.y
 
 on:
   #自动编译：每个星期二早上4点
@@ -23,26 +23,6 @@ on:
         options:
           - unifreq
           - codesnas
-      kernel_version:
-        description: "Select kernel version"
-        required: false
-        default: "6.6.y"
-        type: choice
-        options:
-          - 5.4.y
-          - 5.10.y
-          - 5.15.y
-          - 6.1.y
-          - 6.6.y
-          - 6.12.y
-          - 5.4.y_5.10.y
-          - 5.10.y_5.15.y
-          - 5.15.y_6.1.y
-          - 6.1.y_6.6.y
-          - 6.6.y_6.12.y
-          - 5.4.y_5.10.y_5.15.y
-          - 6.1.y_6.6.y_6.12.y
-          - all
       kernel_auto:
         description: "Auto use the latest kernel"
         required: false
@@ -110,7 +90,7 @@ jobs:
 
     env:
       KERNEL_SOURCE: ${{ github.event.inputs.kernel_source || 'unifreq' }}
-      KERNEL_VERSION: ${{ github.event.inputs.kernel_version || 'all' }}
+      KERNEL_VERSION: 5.10.y
       KERNEL_AUTO: ${{ github.event.inputs.kernel_auto || true }}
       AUTO_PATCH: ${{ github.event.inputs.auto_patch || true }}
       SILENT_LOG: ${{ github.event.inputs.silent_log || true }}

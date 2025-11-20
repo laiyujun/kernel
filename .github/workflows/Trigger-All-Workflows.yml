@@ -1,0 +1,29 @@
+name: Trigger-All-Workflows  # 主要工作流的名称
+
+on:
+  workflow_dispatch:  # 手动触发：通过 GitHub UI 来触发
+  schedule:
+    - cron: 0 16 * * 2,5  # 北京时间星期二、五凌晨4点，定时触发
+
+jobs:
+
+  kernel-6_12_y:
+    uses: ./.github/workflows/compile-mainline-kernel-6.12.yml
+
+  kernel-6_6_y:
+    uses: ./.github/workflows/compile-mainline-kernel-6.6.yml
+
+  kernel-6_1_y:
+    uses: ./.github/workflows/compile-mainline-kernel-6.1.yml
+
+  kernel-5_15_y:
+    uses: ./.github/workflows/compile-mainline-kernel-5.15.yml
+
+  kernel-5_10_y:
+    uses: ./.github/workflows/compile-mainline-kernel-5.10.yml
+
+  kernel-5_4_y:
+    uses: ./.github/workflows/compile-mainline-kernel-5.4.yml
+
+  All-Clean:
+    uses: ./.github/workflows/delete-older-releases-workflows.yml
