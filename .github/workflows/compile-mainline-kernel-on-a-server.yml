@@ -113,6 +113,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
+    name: build kernel for ${{ inputs.kernel_version }}
     if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
     env:
