@@ -116,16 +116,16 @@ jobs:
     if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
     env:
-      KERNEL_SOURCE: ${{ github.event.inputs.kernel_source || 'unifreq' }}
-      KERNEL_VERSION: ${{ github.event.inputs.kernel_version || 'all' }}
-      KERNEL_AUTO: ${{ github.event.inputs.kernel_auto || true }}
-      AUTO_PATCH: ${{ github.event.inputs.auto_patch || true }}
-      SILENT_LOG: ${{ github.event.inputs.silent_log || true }}
-      DELETE_SOURCE: ${{ github.event.inputs.delete_source || true }}
-      KERNEL_PACKAGE: ${{ github.event.inputs.kernel_package || 'all' }}
-      KERNEL_TOOLCHAIN: ${{ github.event.inputs.kernel_toolchain || 'gcc' }}
-      COMPRESS_FORMAT: ${{ github.event.inputs.compress_format || 'xz' }}
-      KERNEL_SIGN: ${{ github.event.inputs.kernel_sign || '-laiyujun' }}
+      KERNEL_SOURCE: ${{ inputs.kernel_source || 'unifreq' }}
+      KERNEL_VERSION: ${{ inputs.kernel_version || 'all' }}
+      KERNEL_AUTO: ${{ inputs.kernel_auto || true }}
+      AUTO_PATCH: ${{ inputs.auto_patch || true }}
+      SILENT_LOG: ${{ inputs.silent_log || true }}
+      DELETE_SOURCE: ${{ inputs.delete_source || true }}
+      KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
+      KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
+      COMPRESS_FORMAT: ${{ inputs.compress_format || 'xz' }}
+      KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
 
     steps:
       - name: Checkout
