@@ -8,22 +8,34 @@ on:
 jobs:
 
   kernel-6_12_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6_12_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '6.12.y'
 
   kernel-6_6_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6_6_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '6.6.y'
 
   kernel-6_1_y:
-    uses: ./.github/workflows/compile-mainline-kernel-6_1_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '6.1.y'
 
   kernel-5_15_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5_15_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '5.15.y'
 
   kernel-5_10_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5_10_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '5.10.y'
 
   kernel-5_4_y:
-    uses: ./.github/workflows/compile-mainline-kernel-5_4_y.yml
+    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
+    with:
+      kernel_version: '5.4.y'
 
 #  All-Clean:
 #    uses: ./.github/workflows/delete-older-releases-workflows.yml
