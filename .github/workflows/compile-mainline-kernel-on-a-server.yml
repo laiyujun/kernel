@@ -17,7 +17,7 @@ on:
     inputs:
       kernel_version:
         description: "input kernel version"
-        required: ture
+        required: true
         type: string
         default: "6.6.y"
   workflow_dispatch:
