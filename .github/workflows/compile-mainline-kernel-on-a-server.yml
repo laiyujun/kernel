@@ -126,6 +126,14 @@ on:
         options:
           - kernel-config/release/stable
           - false
+      kernel_patch:
+        description: "Set the directory for kernel patches"
+        required: false
+        default: "kernel-patch/beta"
+        type: choice
+        options:
+          - kernel-patch/beta
+          - false
 
 env:
   TZ: Etc/UTC
@@ -151,6 +159,7 @@ jobs:
       COMPRESS_FORMAT: ${{ inputs.compress_format || 'xz' }}
       KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
       KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
+      KERNEL_PATCH: ${{ inputs.kernel_patch || 'kernel-patch/beta' }}
 
     steps:
       - name: Checkout
@@ -237,6 +246,7 @@ jobs:
           kernel_sign: ${{ env.KERNEL_SIGN }}
           kernel_toolchain: ${{ env.KERNEL_TOOLCHAIN }}
           kernel_config: ${{ env.KERNEL_CONFIG }}
+          kernel_patch: ${{ env.KERNEL_PATCH }}
           ccache_clear: ${{ env.CCACHE_CLEAR }}
           compress_format: ${{ env.COMPRESS_FORMAT }}
           silent_log: ${{ env.SILENT_LOG }}
