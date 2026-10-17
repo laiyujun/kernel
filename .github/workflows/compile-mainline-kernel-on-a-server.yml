@@ -245,9 +245,7 @@ jobs:
           allowUpdates: true
           removeArtifacts: false
           replacesArtifacts: true
-          make_latest: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             The kernel can be used to compile Armbian and OpenWrt with oaf driver.
             The kernel source code comes from: ${{ env.KERNEL_SOURCE }}
