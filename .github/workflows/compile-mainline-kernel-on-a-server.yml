@@ -29,28 +29,19 @@ on:
         type: choice
         options:
           - unifreq
-          - codesnas
+          - ophub
       kernel_version:
         description: "Select kernel version"
         required: false
         default: "6.18.y"
         type: choice
         options:
-          - 5.4.y
           - 5.10.y
           - 5.15.y
           - 6.1.y
           - 6.6.y
           - 6.12.y
           - 6.18.y
-          - 5.4.y_5.10.y
-          - 5.10.y_5.15.y
-          - 5.15.y_6.1.y
-          - 6.1.y_6.6.y
-          - 6.6.y_6.12.y
-          - 6.12.y_6.18.y
-          - 5.4.y_5.10.y_5.15.y
-          - 6.1.y_6.6.y_6.12.y_6.18.y
           - all
       kernel_auto:
         description: "Auto use the latest kernel"
@@ -59,11 +50,6 @@ on:
         type: boolean
       auto_patch:
         description: "Auto apply patch"
-        required: false
-        default: true
-        type: boolean
-      silent_log:
-        description: "Use silent logging"
         required: false
         default: true
         type: boolean
@@ -97,16 +83,16 @@ on:
         required: false
         default: false
         type: boolean
-      compress_format:
-        description: "Set the initrd compression format"
+      docker_image:
+        description: "Select Armbian docker image"
         required: false
-        default: "xz"
+        default: "resolute"
         type: choice
         options:
-          - xz
-          - gzip
-          - zstd
-          - lzma
+          - trixie
+          - bookworm
+          - resolute
+          - noble
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
@@ -156,6 +142,7 @@ jobs:
       KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
       KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
       CCACHE_CLEAR: ${{ inputs.ccache_clear || false }}
+      DOCKER_IMAGE: ${{ inputs.docker_image || 'resolute'}}
       COMPRESS_FORMAT: ${{ inputs.compress_format || 'xz' }}
       KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
       KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
@@ -163,7 +150,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Initialize the build environment
         id: init
@@ -234,7 +221,7 @@ jobs:
             kernel-stable-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-
 
       - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
-        uses: laiyujun/amlogic-s9xxx-armbian@main
+        uses: ophub/amlogic-s9xxx-armbian@main
         if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
@@ -243,14 +230,13 @@ jobs:
           kernel_auto: ${{ env.KERNEL_AUTO }}
           delete_source: ${{ env.DELETE_SOURCE }}
           kernel_package: ${{ env.KERNEL_PACKAGE }}
-          kernel_sign: ${{ env.KERNEL_SIGN }}
           kernel_toolchain: ${{ env.KERNEL_TOOLCHAIN }}
+          kernel_sign: ${{ env.KERNEL_SIGN }}
           kernel_config: ${{ env.KERNEL_CONFIG }}
           kernel_patch: ${{ env.KERNEL_PATCH }}
           ccache_clear: ${{ env.CCACHE_CLEAR }}
-          compress_format: ${{ env.COMPRESS_FORMAT }}
-          silent_log: ${{ env.SILENT_LOG }}
-          auto_patch: ${{ env.AUTO_PATCH }}
+          docker_hostpath: /builder
+          docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
@@ -261,7 +247,9 @@ jobs:
           allowUpdates: true
           removeArtifacts: false
           replacesArtifacts: true
+          make_latest: true
           token: ${{ secrets.GITHUB_TOKEN }}
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             The kernel can be used to compile Armbian and OpenWrt with oaf driver.
             The kernel source code comes from: ${{ env.KERNEL_SOURCE }}

@@ -37,10 +37,5 @@ jobs:
     with:
       kernel_version: '5.10.y'
 
-  kernel-5_4_y:
-    uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
-    with:
-      kernel_version: '5.4.y'
-
 #  All-Clean:
 #    uses: ./.github/workflows/delete-older-releases-workflows.yml
