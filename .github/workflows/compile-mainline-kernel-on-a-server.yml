@@ -137,13 +137,11 @@ jobs:
       KERNEL_VERSION: ${{ inputs.kernel_version || 'all' }}
       KERNEL_AUTO: ${{ inputs.kernel_auto || true }}
       AUTO_PATCH: ${{ inputs.auto_patch || true }}
-      SILENT_LOG: ${{ inputs.silent_log || true }}
       DELETE_SOURCE: ${{ inputs.delete_source || true }}
       KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
       KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
       CCACHE_CLEAR: ${{ inputs.ccache_clear || false }}
       DOCKER_IMAGE: ${{ inputs.docker_image || 'resolute'}}
-      COMPRESS_FORMAT: ${{ inputs.compress_format || 'xz' }}
       KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
       KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
       KERNEL_PATCH: ${{ inputs.kernel_patch || 'kernel-patch/beta' }}
@@ -236,7 +234,7 @@ jobs:
           kernel_patch: ${{ env.KERNEL_PATCH }}
           ccache_clear: ${{ env.CCACHE_CLEAR }}
           docker_hostpath: /builder
-          docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
+          docker_image: ophub/armbian-${{ env.DOCKER_IMAGE }}:arm64
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
