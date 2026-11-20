@@ -251,6 +251,7 @@ jobs:
           kernel_sign: ${{ env.KERNEL_SIGN }}
           kernel_config: ${{ env.KERNEL_CONFIG }}
           kernel_patch: ${{ env.KERNEL_PATCH }}
+          auto_patch: ${{ env.AUTO_PATCH }}
           ccache_clear: ${{ env.CCACHE_CLEAR }}
           docker_hostpath: /builder
           docker_image: ophub/armbian-${{ env.DOCKER_IMAGE }}:arm64
