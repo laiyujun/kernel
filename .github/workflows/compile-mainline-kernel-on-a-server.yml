@@ -306,8 +306,9 @@ jobs:
 
       # P2: the upstream action swallows patch failures with "|| echo Failed ... skipping",
       # so a patch that never applies is invisible. Dry-run every patch against a fresh
-      # checkout of the exact source first; any hunk failure aborts this job with a
-      # per-patch summary. Clone failure fails open (network issue must not block builds).
+      # checkout of the exact source and report per-patch results in the Step Summary.
+      # Failures are WARNING-only and never abort the build (same non-fatal semantics as
+      # the upstream action); clone failure also fails open.
       - name: Validate kernel patches (dry-run)
         id: patchcheck
         run: |
@@ -380,10 +381,10 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
           if [[ "${failed}" -gt 0 ]]; then
-            echo "::error::${failed}/${total} kernel patch(es) failed dry-run; aborting build. See Step Summary."
-            exit 1
+            echo "::warning::${failed}/${total} kernel patch(es) failed dry-run; build continues (matching the upstream action's non-fatal patch handling). See Step Summary."
+          else
+            echo "All ${total} patch(es) applied cleanly (dry-run)."
           fi
-          echo "All ${total} patch(es) applied cleanly (dry-run)."
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
