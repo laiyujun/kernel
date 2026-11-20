@@ -141,6 +141,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '6.18.y'
 
   kernel-6_12_y:
@@ -149,6 +152,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '6.12.y'
 
   kernel-6_6_y:
@@ -157,6 +163,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '6.6.y'
 
   kernel-6_1_y:
@@ -165,6 +174,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '6.1.y'
 
   kernel-5_15_y:
@@ -173,6 +185,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '5.15.y'
 
   kernel-5_10_y:
@@ -181,6 +196,9 @@ jobs:
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
       kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
+      kernel_auto: true
+      auto_patch: true
+      ccache_clear: ${{ inputs.force_build == true }}
       kernel_version: '5.10.y'
 
 #  All-Clean:

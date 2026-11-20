@@ -25,6 +25,56 @@ on:
         required: true
         type: string
         default: "6.18.y"
+      kernel_auto:
+        description: "Auto use the latest kernel"
+        required: false
+        type: boolean
+        default: true
+      auto_patch:
+        description: "Auto apply kernel patches"
+        required: false
+        type: boolean
+        default: true
+      delete_source:
+        description: "Delete the source after compilation"
+        required: false
+        type: boolean
+        default: true
+      kernel_package:
+        description: "Select compile package list"
+        required: false
+        type: string
+        default: "all"
+      kernel_toolchain:
+        description: "Select the compilation toolchain"
+        required: false
+        type: string
+        default: "gcc"
+      ccache_clear:
+        description: "Clear ccache before compilation"
+        required: false
+        type: boolean
+        default: false
+      docker_image:
+        description: "Select Armbian docker image"
+        required: false
+        type: string
+        default: "resolute"
+      kernel_sign:
+        description: "Set the kernel custom signature"
+        required: false
+        type: string
+        default: "-laiyujun"
+      kernel_config:
+        description: "Path of kernel .config"
+        required: false
+        type: string
+        default: "kernel-config/release/stable"
+      kernel_patch:
+        description: "Directory for kernel patches"
+        required: false
+        type: string
+        default: "kernel-patch/beta"
   workflow_dispatch:
     inputs:
       kernel_source:
@@ -140,12 +190,14 @@ jobs:
     env:
       KERNEL_SOURCE: ${{ inputs.kernel_source || 'unifreq' }}
       KERNEL_VERSION: ${{ inputs.kernel_version || 'all' }}
-      KERNEL_AUTO: ${{ inputs.kernel_auto != false }}
-      AUTO_PATCH: ${{ inputs.auto_patch != false }}
-      DELETE_SOURCE: ${{ inputs.delete_source != false }}
+      # repository_dispatch 不携带 inputs（空串），为其提供与 workflow_dispatch.default 一致的默认值；
+      # 其余路径 inputs.X 已经是真正的 boolean，直接传递，避免 loose equality 把 false 误判。
+      KERNEL_AUTO: ${{ github.event_name == 'repository_dispatch' && true || inputs.kernel_auto }}
+      AUTO_PATCH: ${{ github.event_name == 'repository_dispatch' && true || inputs.auto_patch }}
+      DELETE_SOURCE: ${{ github.event_name == 'repository_dispatch' && true || inputs.delete_source }}
       KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
       KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
-      CCACHE_CLEAR: ${{ inputs.ccache_clear == true }}
+      CCACHE_CLEAR: ${{ github.event_name == 'repository_dispatch' && false || inputs.ccache_clear }}
       DOCKER_IMAGE: ${{ inputs.docker_image || 'resolute'}}
       KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
       KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
@@ -227,19 +279,116 @@ jobs:
           [[ -z "${source_hash}" || "${source_hash}" == "null" ]] && source_hash="${GITHUB_SHA}"
           echo "SOURCE_HASH=${source_hash}" >> ${GITHUB_ENV}
           echo "Using source ${code_owner}/${code_repo}@${code_branch} for ${first_kernel:-all}"
+
+          # P1: fold local patch/config content into the ccache key. Without this,
+          # changing a patch or .config leaves SOURCE_HASH unchanged and ccache
+          # restores stale objects, so a "forced" build never recompiles.
+          patch_cfg_hash=""
+          for d in "${KERNEL_PATCH}" "${KERNEL_CONFIG}"; do
+            if [[ -n "${d}" && "${d}" != "false" && -d "${GITHUB_WORKSPACE}/${d}" ]]; then
+              patch_cfg_hash+="$(cd "${GITHUB_WORKSPACE}/${d}" && \
+                find . -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum | cut -c1-12)"
+            fi
+          done
+          [[ -n "${patch_cfg_hash}" ]] || patch_cfg_hash="none"
+          echo "PATCH_CONFIG_HASH=${patch_cfg_hash}" >> ${GITHUB_ENV}
+          echo "Patch/config content hash: ${patch_cfg_hash}"
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Cache ccache
         uses: actions/cache@v5
         with:
           path: /builder/ccache
-          key: kernel-stable-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-${{ env.SOURCE_HASH }}
+          key: kernel-stable-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-${{ env.SOURCE_HASH }}-${{ env.PATCH_CONFIG_HASH }}
           restore-keys: |
+            kernel-stable-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-${{ env.SOURCE_HASH }}-
             kernel-stable-${{ env.KERNEL_TOOLCHAIN }}-${{ env.KERNEL_VERSION }}-
+
+      # P2: the upstream action swallows patch failures with "|| echo Failed ... skipping",
+      # so a patch that never applies is invisible. Dry-run every patch against a fresh
+      # checkout of the exact source first; any hunk failure aborts this job with a
+      # per-patch summary. Clone failure fails open (network issue must not block builds).
+      - name: Validate kernel patches (dry-run)
+        id: patchcheck
+        run: |
+          set -uo pipefail
+          input_r_value="${KERNEL_SOURCE#https://github.com/}"
+          code_owner="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $1}')"
+          code_repo="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $2}')"
+          code_branch="$(echo "${input_r_value}" | awk -F '@' '{print $2}')"
+          [[ -n "${code_branch}" ]] || code_branch="main"
+
+          first_kernel="${KERNEL_VERSION%%_*}"
+          main_line="$(echo "${first_kernel}" | awk -F '.' '{print $1"."$2}')"
+          # Mirror the action's local_kernel_path: owner-only -> linux-<x.y>.y,
+          # custom repo -> <repo>-<branch>. Patch subdirs must match exactly.
+          if [[ -n "${code_repo}" ]]; then
+            local_kernel_path="${code_repo}-${code_branch}"
+          else
+            code_repo="linux-${main_line}.y"
+            local_kernel_path="linux-${main_line}.y"
+          fi
+
+          if [[ "${AUTO_PATCH}" != "true" || "${KERNEL_PATCH}" == "false" ||
+                -z "${first_kernel}" || "${first_kernel}" == "all" ]]; then
+            {
+              echo "### Kernel patch validation"
+              echo "Skipped (auto_patch=${AUTO_PATCH}, kernel_patch=${KERNEL_PATCH}, version=${first_kernel:-all})."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "status=success" >> ${GITHUB_OUTPUT}
+            exit 0
+          fi
+
+          work="$(mktemp -d)"
+          echo "Cloning ${code_owner}/${code_repo}@${code_branch} for dry-run patch check..."
+          if ! git clone -q --depth=1 --branch "${code_branch}" \
+              "https://github.com/${code_owner}/${code_repo}" "${work}/src"; then
+            echo "::warning::Cannot clone source for patch validation; failing open"
+            echo "status=success" >> ${GITHUB_OUTPUT}
+            rm -rf "${work}"
+            exit 0
+          fi
+
+          total=0
+          failed=0
+          report=""
+          check_dir() {
+            local dir="$1"
+            [[ -d "${dir}" ]] || return 0
+            local pf
+            for pf in "${dir}"/*.patch; do
+              [[ -f "${pf}" ]] || continue
+              total=$((total + 1))
+              if patch -p1 --dry-run --forward -d "${work}/src" < "${pf}" >/dev/null 2>&1; then
+                report+="| OK | $(basename "${pf}") | ${dir##*/} |"$'\n'
+              else
+                report+="| FAIL | $(basename "${pf}") | ${dir##*/} |"$'\n'
+                failed=$((failed + 1))
+              fi
+            done
+          }
+          check_dir "${GITHUB_WORKSPACE}/${KERNEL_PATCH}/common-kernel-patches"
+          check_dir "${GITHUB_WORKSPACE}/${KERNEL_PATCH}/${local_kernel_path}"
+          rm -rf "${work}"
+
+          {
+            echo "### Kernel patch validation"
+            echo "Source: ${code_owner}/${code_repo}@${code_branch}　Patches: ${total}　Failed: ${failed}"
+            echo "| Result | Patch | Group |"
+            echo "|---|---|---|"
+            printf '%s' "${report}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ "${failed}" -gt 0 ]]; then
+            echo "::error::${failed}/${total} kernel patch(es) failed dry-run; aborting build. See Step Summary."
+            exit 1
+          fi
+          echo "All ${total} patch(es) applied cleanly (dry-run)."
+          echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
         uses: ophub/amlogic-s9xxx-armbian@main
-        if: ${{ steps.kernelhash.outputs.status == 'success' && !cancelled() }}
+        if: ${{ steps.kernelhash.outputs.status == 'success' && steps.patchcheck.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
           kernel_source: ${{ env.KERNEL_SOURCE }}
