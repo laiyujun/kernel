@@ -239,7 +239,7 @@ jobs:
 
       - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
         uses: ophub/amlogic-s9xxx-armbian@main
-        if: ${{ steps.kernelhash.outputs.status }} == 'success' && !cancelled()
+        if: ${{ steps.kernelhash.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
           kernel_source: ${{ env.KERNEL_SOURCE }}
@@ -257,7 +257,7 @@ jobs:
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
-        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
+        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
         with:
           tag: kernel_stable
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
