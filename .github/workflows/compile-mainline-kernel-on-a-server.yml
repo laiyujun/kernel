@@ -15,6 +15,11 @@ on:
   repository_dispatch:
   workflow_call:
     inputs:
+      kernel_source:
+        description: "Upstream kernel source (owner, owner/repo, or owner/repo@branch)"
+        required: false
+        type: string
+        default: "unifreq"
       kernel_version:
         description: "input kernel version"
         required: true
@@ -128,19 +133,19 @@ jobs:
   build:
     runs-on: ubuntu-26.04-arm
     name: build kernel for ${{ inputs.kernel_version }}
-    if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
+    if: ${{ github.event_name != 'pull_request' }}
     permissions:
       contents: write
 
     env:
       KERNEL_SOURCE: ${{ inputs.kernel_source || 'unifreq' }}
       KERNEL_VERSION: ${{ inputs.kernel_version || 'all' }}
-      KERNEL_AUTO: ${{ inputs.kernel_auto || true }}
-      AUTO_PATCH: ${{ inputs.auto_patch || true }}
-      DELETE_SOURCE: ${{ inputs.delete_source || true }}
+      KERNEL_AUTO: ${{ inputs.kernel_auto != false }}
+      AUTO_PATCH: ${{ inputs.auto_patch != false }}
+      DELETE_SOURCE: ${{ inputs.delete_source != false }}
       KERNEL_PACKAGE: ${{ inputs.kernel_package || 'all' }}
       KERNEL_TOOLCHAIN: ${{ inputs.kernel_toolchain || 'gcc' }}
-      CCACHE_CLEAR: ${{ inputs.ccache_clear || false }}
+      CCACHE_CLEAR: ${{ inputs.ccache_clear == true }}
       DOCKER_IMAGE: ${{ inputs.docker_image || 'resolute'}}
       KERNEL_SIGN: ${{ inputs.kernel_sign || '-laiyujun' }}
       KERNEL_CONFIG: ${{ inputs.kernel_config || 'kernel-config/release/stable' }}
@@ -198,16 +203,30 @@ jobs:
       - name: Get kernel source commit hash
         id: kernelhash
         run: |
-          # Get the latest source hash from the kernel repository
-          api_url="https://api.github.com/repos/${{ inputs.kernel_source }}/linux-${{ matrix.kernel_version }}/git/ref/heads/main"
-          source_hash=$(curl -fsSL -m 20 \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${api_url} |
-              jq -r '.object.sha'
-          )
-          [[ -z "${source_hash}" || "${source_hash}" == "null" ]] && source_hash="${{ github.sha }}"
+          # Resolve the source the same way as the compile action (-r owner/repo@branch).
+          # With only an owner, the action uses owner/linux-<x.y>.y@main.
+          input_r_value="${KERNEL_SOURCE#https://github.com/}"
+          code_owner="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $1}')"
+          code_repo="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $2}')"
+          code_branch="$(echo "${input_r_value}" | awk -F '@' '{print $2}')"
+          [[ -n "${code_branch}" ]] || code_branch="main"
+
+          first_kernel="${KERNEL_VERSION%%_*}"
+          if [[ -z "${first_kernel}" || "${first_kernel}" == "all" ]]; then
+            source_hash="${GITHUB_SHA}"
+          else
+            main_line="$(echo "${first_kernel}" | awk -F '.' '{print $1"."$2}')"
+            [[ -n "${code_repo}" ]] || code_repo="linux-${main_line}.y"
+            api_url="https://api.github.com/repos/${code_owner}/${code_repo}/git/ref/heads/${code_branch}"
+            source_hash="$(curl -fsSL -m 20 \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "${api_url}" |
+                python3 -c 'import json,sys; print(json.load(sys.stdin).get("object", {}).get("sha", ""))' 2>/dev/null || true)"
+          fi
+          [[ -z "${source_hash}" || "${source_hash}" == "null" ]] && source_hash="${GITHUB_SHA}"
           echo "SOURCE_HASH=${source_hash}" >> ${GITHUB_ENV}
+          echo "Using source ${code_owner}/${code_repo}@${code_branch} for ${first_kernel:-all}"
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Cache ccache
@@ -220,7 +239,7 @@ jobs:
 
       - name: Compile the kernel [ ${{ env.KERNEL_VERSION }} ]
         uses: ophub/amlogic-s9xxx-armbian@main
-        if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
+        if: ${{ steps.kernelhash.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
           kernel_source: ${{ env.KERNEL_SOURCE }}

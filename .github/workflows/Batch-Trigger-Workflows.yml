@@ -2,39 +2,183 @@ name: Batch-Trigger-Workflows  # 主要工作流的名称
 
 on:
   workflow_dispatch:  # 手动触发：通过 GitHub UI 来触发
+    inputs:
+      kernel_source:
+        description: "Select the upstream kernel source"
+        required: false
+        default: "unifreq"
+        type: choice
+        options:
+          - unifreq
+          - ophub
+      force_build:
+        description: "Force rebuild all versions even if no newer kernel is available"
+        required: false
+        default: false
+        type: boolean
   schedule:
-    - cron: 5 17 * * 2,5  # 北京时间星期二、五凌晨4点，定时触发
+    - cron: 5 17 * * 2,5  # 北京时间星期二、五凌晨1点，定时触发
 
 jobs:
+  # 只让真正有“新版本内核”的系列进入编译；判断依据来自源码解析和本仓库 Release 资产，不读 README。
+  preflight:
+    name: Check for new kernel versions
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      build_versions: ${{ steps.check.outputs.build_versions }}
+      details: ${{ steps.check.outputs.details }}
+    steps:
+      - name: Compare upstream SUBLEVEL with released kernels
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_BUILD: ${{ inputs.force_build }}
+          KERNEL_SOURCE: ${{ inputs.kernel_source || 'unifreq' }}
+        run: |
+          set -uo pipefail
+
+          # 与 compile-mainline-kernel-on-a-server.yml 的 env 默认值及 action 源码一致：
+          # -r 仅传 owner 时，源码按 owner/linux-<x.y>.y@main 解析；所有版本共用 kernel_stable tag。
+          # 沿用 action 源码 all_kernel 的六个系列；5.4.y 虽有旧配置但不在源码列表中。
+          SERIES=(5.10.y 5.15.y 6.1.y 6.6.y 6.12.y 6.18.y)
+          REPO="${GITHUB_REPOSITORY}"
+          FORCE="${FORCE_BUILD:-false}"
+
+          # 按 action 源码解析 -r owner/repo@branch（owner@branch / owner/repo / owner 均支持）。
+          # 与 kernelhash 步骤保持同一套解析规则，避免 preflight 与实际编译指向不同源码。
+          input_r_value="${KERNEL_SOURCE#https://github.com/}"
+          code_owner="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $1}')"
+          code_repo="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $2}')"
+          code_branch="$(echo "${input_r_value}" | awk -F '@' '{print $2}')"
+          [[ -n "${code_owner}" ]] || code_owner="unifreq"
+          [[ -n "${code_branch}" ]] || code_branch="main"
+          RELEASE_JSON="$(mktemp)"
+
+          release_note="ok"
+          asset_names=""
+          if curl -fsSL -m 30 \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/${REPO}/releases/tags/kernel_stable" >"${RELEASE_JSON}"; then
+            asset_names="$(jq -r '.assets[]?.name // empty' "${RELEASE_JSON}" 2>/dev/null || true)"
+          else
+            echo "::warning::Cannot read kernel_stable release; treating all series as needing a build."
+            release_note="release_api_failed"
+          fi
+
+          build_versions='[]'
+          checks='[]'
+
+          for version in "${SERIES[@]}"; do
+            short="${version%.y}"
+            upstream=""
+
+            # 同 action 源码 query_version()：读取 Makefile 的 SUBLEVEL 得到具体版本。
+            # 源码仓库拼接规则与 action 一致：仅 owner 时用 linux-<x.y>.y，显式 repo 时共用该 repo。
+            if [[ -n "${code_repo}" ]]; then src_repo="${code_repo}"; else src_repo="linux-${short}.y"; fi
+            if makefile="$(curl -fsSL -m 20 \
+                "https://raw.githubusercontent.com/${code_owner}/${src_repo}/${code_branch}/Makefile" 2>/dev/null)"; then
+              sublevel="$(printf '%s\n' "${makefile}" | grep -oE '^SUBLEVEL[[:space:]]*=[[:space:]]*[0-9]{1,3}' | head -n 1 | grep -oE '[0-9]{1,3}' || true)"
+              [[ -n "${sublevel}" ]] && upstream="${short}.${sublevel}"
+            fi
+
+            # 只认 X.Y.Z.tar.gz 与配套 deb-X.Y.Z.tar.gz，排除 boot/modules/dtb 等前缀。
+            esc_short="$(printf '%s' "${short}" | sed 's/\./\\./g')"
+            last_ver="$(printf '%s\n' "${asset_names}" \
+              | grep -E "^${esc_short}\.[0-9]+\.tar\.gz$" \
+              | sed -E "s/^${esc_short}\.([0-9]+\.[0-9]+)\.tar\.gz$/\1/" \
+              | sort -V | tail -n 1 || true)"
+            has_deb=false
+            if [[ -n "${last_ver}" ]] && printf '%s\n' "${asset_names}" | grep -qx "deb-${last_ver}.tar.gz"; then
+              has_deb=true
+            fi
+
+            need=false
+            if [[ "${FORCE}" == "true" ]]; then
+              reason="forced"; need=true
+            elif [[ -z "${upstream}" ]]; then
+              reason="upstream_query_failed"; need=true
+            elif [[ -z "${last_ver}" || "${has_deb}" != "true" ]]; then
+              reason="no_complete_release_asset"; need=true
+            elif [[ "$(printf '%s\n%s\n' "${last_ver}" "${upstream}" | sort -V | tail -n 1)" == "${upstream}" && "${upstream}" != "${last_ver}" ]]; then
+              reason="upstream_is_newer"; need=true
+            else
+              reason="up_to_date"
+            fi
+
+            if [[ "${need}" == "true" ]]; then
+              build_versions="$(printf '%s' "${build_versions}" | jq -c --arg v "${version}" '. + [$v]')"
+            fi
+            item="$(jq -nc \
+              --arg s "${version}" \
+              --arg u "${upstream}" \
+              --arg l "${last_ver}" \
+              --argjson b "${need}" \
+              --arg r "${reason}" \
+              '{series:$s,upstream:(if $u=="" then null else $u end),last_released:(if $l=="" then null else $l end),build:$b,reason:$r}')"
+            checks="$(printf '%s' "${checks}" | jq -c --argjson i "${item}" '. + [$i]')"
+          done
+
+          details="$(jq -nc --argjson c "${checks}" --arg n "${release_note}" '{checks:$c,release_note:$n}')"
+          echo "build_versions=${build_versions}" >>"${GITHUB_OUTPUT}"
+          echo "details=${details}" >>"${GITHUB_OUTPUT}"
+
+          {
+            echo "### Kernel preflight"
+            echo "Source: \`${code_owner}/${code_repo:-linux-<series>.y}@${code_branch}\`"
+            echo "| 系列 | 上游 | 已发布 | 结果 | 原因 |"
+            echo "|---|---|---|---|---|"
+            printf '%s' "${details}" | jq -r '.checks[] | "| \(.series) | \(.upstream // "-") | \(.last_released // "-") | \(if .build then "编译" else "跳过" end) | \(.reason) |"'
+          } >>"${GITHUB_STEP_SUMMARY}"
 
   kernel-6_18_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '6.18.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '6.18.y'
 
   kernel-6_12_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '6.12.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '6.12.y'
 
   kernel-6_6_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '6.6.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '6.6.y'
 
   kernel-6_1_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '6.1.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '6.1.y'
 
   kernel-5_15_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '5.15.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '5.15.y'
 
   kernel-5_10_y:
+    needs: preflight
+    if: ${{ contains(fromJSON(needs.preflight.outputs.build_versions), '5.10.y') }}
     uses: ./.github/workflows/compile-mainline-kernel-on-a-server.yml
     with:
+      kernel_source: ${{ inputs.kernel_source || 'unifreq' }}
       kernel_version: '5.10.y'
 
 #  All-Clean:
