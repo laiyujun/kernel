@@ -17,7 +17,8 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: 6 20 * * 2,5  # UTC 20:06 = 北京时间周三/周六04:06，定时触发（错开整点，避开高负载延迟）
+    - cron: 6 0 * * 2,5  # 北京时间周二/周五00:06，定时触发（错开整点，避开高负载延迟）
+      timezone: 'Asia/Shanghai'
 
 jobs:
   # 只让真正有“新版本内核”的系列进入编译；判断依据来自源码解析和本仓库 Release 资产，不读 README。
