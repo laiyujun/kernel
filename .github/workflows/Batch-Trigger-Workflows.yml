@@ -17,7 +17,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: 6 0 * * 2,5  # 北京时间周二/周五00:06，定时触发（错开整点，避开高负载延迟）
+    - cron: 36 18 * * 1,4  # 北京时间周一/周四18:36计划，反向提前5.5h抵消延迟，预期实际周二/周五约00:06
       timezone: 'Asia/Shanghai'
 
 jobs:
